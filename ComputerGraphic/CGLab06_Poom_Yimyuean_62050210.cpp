@@ -10,10 +10,15 @@
 using namespace std;
 using namespace glm;
 
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
+using std::chrono::seconds;
+using std::chrono::system_clock;
+
 const GLint WIDTH = 800, HEIGHT = 600;
 const float toRadian = 3.14159265f / 180.0f;
 float trioffset = 0.0f;
-float triIncrease = 0.005f;
+float triIncrease = 0.3f;
 float trimaxoffset = 0.5f;
 bool direction = true;
 GLuint VAO, VBO, IBO, shader, uniformModel, uniformProjection;
@@ -118,12 +123,14 @@ void CompileShaders() {
         return;
     }
     
+    //Add Shader
     AddShader(shader, vShader, GL_VERTEX_SHADER);
     AddShader(shader, fShader, GL_FRAGMENT_SHADER);
     
     GLint result = 0;
     GLchar elog[1024] = { 0 };
     
+    //Link Shader
     glLinkProgram(shader);
     glGetProgramiv(shader, GL_LINK_STATUS, &result);
     
@@ -142,10 +149,29 @@ void CompileShaders() {
         return;
     }
     
+    
+    //Get Uniform
     uniformModel = glGetUniformLocation(shader, "model");
     uniformProjection = glGetUniformLocation(shader, "projection");
 }
 
+//Animation Update
+void update(long elapsedTime) {
+    if(direction) {
+        trioffset += triIncrease * (elapsedTime / 1000.0);
+    } else {
+        trioffset -= triIncrease * (elapsedTime / 1000.0);
+    }
+    
+    if(direction && trioffset >= trimaxoffset) {
+        direction = false;
+    }
+    if(!direction && trioffset <= -trimaxoffset) {
+        direction = true;
+    }
+}
+
+//Main Program
 int main() {
     if(!glfwInit()) {
         printf("GLFW Installation Failed");
@@ -189,18 +215,25 @@ int main() {
     
     mat4 projection = perspective(45.0f, (GLfloat)bufferWidth / (GLfloat)bufferHeight, 0.1f, 100.0f);
     
+    //Animation Init
+    auto currentTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    
+    long lastTime = currentTime;
+    long elaspTime;
+    
+    
+    
     while(!glfwWindowShouldClose(mainWindow)) {
+        //Animation Loop
+        currentTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        
+        elaspTime = currentTime - lastTime;
+        lastTime = currentTime;
+        
         //Get + Handle user input events
         glfwPollEvents();
-        if(direction) {
-            trioffset += triIncrease;
-        } else {
-            trioffset -= triIncrease;
-        }
         
-        if(abs(trioffset) >= trimaxoffset) {
-            direction = !direction;
-        }
+        update(elaspTime);
         
         //Clear Window
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

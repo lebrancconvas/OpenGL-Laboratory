@@ -16,7 +16,7 @@ float trioffset = 0.0f;
 float triIncrease = 0.005f;
 float trimaxoffset = 0.5f;
 bool direction = true;
-GLuint VAO, VBO, IBO, shader, uniformModel, uniformProjection;
+GLuint VAO, VBO, shader, uniformModel, uniformProjection, IBO;
 
 //vShader
 static const char* vShader =
@@ -179,9 +179,8 @@ int main() {
         return 1;
     }
     
-    glEnable(GL_DEPTH_TEST);
     glViewport(0, 0, bufferWidth, bufferHeight);
-    
+    glEnable(GL_DEPTH_TEST);
     
     CreateTriangle();
     glBindVertexArray(VAO);
@@ -212,7 +211,7 @@ int main() {
         mat4 model (1.0f);
         /* Transformation */
         model = translate(model, vec3(trioffset, 0.0f, -2.5f));
-        //model = rotate(model, 90.0f * toRadian, vec3(0.0f, 0.0f, 1.0f));
+        model = rotate(model, 90.0f * toRadian, vec3(0.0f, 0.0f, 1.0f));
         model = scale(model, vec3(0.4f, 0.4f, 1.0f));
         
         glUniformMatrix4fv(uniformModel, 1, GL_FALSE, value_ptr(model));

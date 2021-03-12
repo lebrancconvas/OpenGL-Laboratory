@@ -10,15 +10,20 @@
 using namespace std;
 using namespace glm;
 
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
+using std::chrono::seconds;
+using std::chrono::system_clock;
+
 const GLint WIDTH = 800, HEIGHT = 600;
 const float toRadian = 3.14159265f / 180.0f;
 float trioffset = 0.0f;
-float triIncrease = 0.005f;
+float triIncrease = 0.3f;
 float trimaxoffset = 0.5f;
 bool direction = true;
-GLuint VAO, VBO, IBO, shader, uniformModel, uniformProjection;
+GLuint VAO, VBO, IBO, shader, uniformModel, uniformProjection, indexCount;
 
-//vShader
+//Vertex Shader
 static const char* vShader =
 "                                                               \n\
 #version 330                                                    \n\
@@ -32,11 +37,11 @@ uniform mat4 projection;                                        \n\
                                                                 \n\
 void main() {                                                   \n\
     gl_Position = projection * model * vec4(pos, 1.0);          \n\
-    vCol = vec4(clamp(pos, 0.0f, 1.0f), 1.0f);                  \n\
+    vCol = vec4(1.0f, 0.0f, 0.0f, 1.0f);                  \n\
 }                                                               \n\
 ";
 
-//fShader
+//Fragment Shader
 static const char* fShader =
 "                                                               \n\
                                                                 \n\
@@ -50,43 +55,31 @@ void main()                                                     \n\
 }                                                               \n\
 ";
 
+//Create Triangle
 void CreateTriangle() {
     GLfloat vertices[] =
     {
-        -1.0f, -1.0f, 0.0f,
-        0.0f, -1.0f, 1.0f,
-        1.0f, -1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f
+        0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        0.0f, 1.6f, 0.0f,
+        1.0f, 1.6f, 0.0f
     };
     
     unsigned int indices[] =
     {
+        0, 2, 3,
         0, 3, 1,
-        1, 3, 2,
-        2, 3, 0,
-        0, 1, 2
+        2, 4, 5,
+        2, 5, 3
     };
     
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    
-    glGenBuffers(1, &IBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
+
+
+//Creat Shader
 void AddShader(GLuint theProgram, const char* shaderCode, GLenum shaderType) {
     GLuint theShader = glCreateShader(shaderType);
     const GLchar* theCode[1];
@@ -110,6 +103,7 @@ void AddShader(GLuint theProgram, const char* shaderCode, GLenum shaderType) {
     glAttachShader(theProgram, theShader);
 }
 
+//Compile Shader
 void CompileShaders() {
     shader = glCreateProgram();
     
@@ -146,6 +140,63 @@ void CompileShaders() {
     uniformProjection = glGetUniformLocation(shader, "projection");
 }
 
+void useShader() {
+    glUseProgram(shader);
+}
+
+//Animation Update
+void update(long elapsedTime) {
+    if(direction) {
+        trioffset += triIncrease * (elapsedTime / 1000.0);
+    } else {
+        trioffset -= triIncrease * (elapsedTime / 1000.0);
+    }
+    
+    if(direction && trioffset >= trimaxoffset) {
+        direction = false;
+    }
+    if(!direction && trioffset <= -trimaxoffset) {
+        direction = true;
+    }
+}
+
+void renderMesh() {
+    glBindVertexArray(VAO);
+    //glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+    glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
+void CreateMesh(GLfloat* vertices, unsigned int* indices, unsigned int numOfVertices, unsigned int numOfIndices)
+{
+    indexCount = numOfIndices;
+
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+
+    glGenBuffers(1, &IBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * numOfIndices, indices, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices[0]) * numOfVertices, vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+
+
+//Main Function
 int main() {
     if(!glfwInit()) {
         printf("GLFW Installation Failed");
@@ -158,7 +209,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-    GLFWwindow* mainWindow = glfwCreateWindow(WIDTH, HEIGHT, "CGLab05 - Poom Yimyuean 62050210", NULL, NULL);
+    GLFWwindow* mainWindow = glfwCreateWindow(WIDTH, HEIGHT, "CG - Assignment 2", NULL, NULL);
 
     if(!mainWindow) {
         glfwTerminate();
@@ -189,25 +240,31 @@ int main() {
     
     mat4 projection = perspective(45.0f, (GLfloat)bufferWidth / (GLfloat)bufferHeight, 0.1f, 100.0f);
     
+    auto currentTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    
+    long lastTime = currentTime;
+    long elaspTime;
+    
+    
+    
     while(!glfwWindowShouldClose(mainWindow)) {
+        //Create Animation
+        currentTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        
+        elaspTime = currentTime - lastTime;
+        lastTime = currentTime;
+        
         //Get + Handle user input events
         glfwPollEvents();
-        if(direction) {
-            trioffset += triIncrease;
-        } else {
-            trioffset -= triIncrease;
-        }
         
-        if(abs(trioffset) >= trimaxoffset) {
-            direction = !direction;
-        }
+        update(elaspTime);
         
         //Clear Window
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         //Draw Here
-        glUseProgram(shader);
+        useShader();
         
         mat4 model (1.0f);
         /* Transformation */
@@ -218,12 +275,8 @@ int main() {
         glUniformMatrix4fv(uniformModel, 1, GL_FALSE, value_ptr(model));
         glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, value_ptr(projection));
         
-        glBindVertexArray(VAO);
-        //glDrawArrays(GL_TRIANGLES, 0, 3);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-        glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
+        renderMesh();
+        
         glUseProgram(0);
         
         //end draw

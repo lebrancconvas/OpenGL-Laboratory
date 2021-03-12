@@ -3,22 +3,32 @@
 #include <string.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 using namespace std;
+using namespace glm;
 
 const GLint WIDTH = 800, HEIGHT = 600;
-GLuint VAO, VBO, shader;
+const float toRadian = 3.14159265f / 180.0f;
+GLuint VAO, VBO, shader, uniformModel;
 
+//vShader
 static const char* vShader =
 "                                                               \n\
 #version 330                                                    \n\
                                                                 \n\
 layout (location = 0) in vec3 pos;                              \n\
                                                                 \n\
+uniform mat4 model;                                             \n\
+                                                                \n\
 void main() {                                                   \n\
-    gl_Position = vec4(0.4 * pos.x, 0.4 * pos.y, pos.z, 1.0);   \n\
+    gl_Position = model * vec4(pos, 1.0);                       \n\
 }                                                               \n\
 ";
 
+//fShader
 static const char* fShader =
 "                                                               \n\
                                                                 \n\
@@ -108,6 +118,8 @@ void CompileShaders() {
         printf("Error validating program : %s\n", elog);
         return;
     }
+    
+    uniformModel = glGetUniformLocation(shader, "model");
 }
 
 int main() {
@@ -122,7 +134,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-    GLFWwindow* mainWindow = glfwCreateWindow(WIDTH, HEIGHT, "CGLab04 - Poom Yimyuean 62050210", NULL, NULL);
+    GLFWwindow* mainWindow = glfwCreateWindow(WIDTH, HEIGHT, "CGLab05 - Poom Yimyuean 62050210", NULL, NULL);
 
     if(!mainWindow) {
         glfwTerminate();
@@ -153,6 +165,12 @@ int main() {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(shader);
+        
+        mat4 model (1.0f);
+        model = scale(model, vec3(0.4f, 0.4f, 1.0f));
+        
+        glUniformMatrix4fv(uniformModel, 1, GL_FALSE, value_ptr(model));
+        
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glBindVertexArray(0);

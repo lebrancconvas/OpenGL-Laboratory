@@ -10,13 +10,18 @@
 using namespace std;
 using namespace glm;
 
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
+using std::chrono::seconds;
+using std::chrono::system_clock;
+
 const GLint WIDTH = 800, HEIGHT = 600;
 const float toRadian = 3.14159265f / 180.0f;
 float trioffset = 0.0f;
-float triIncrease = 0.005f;
+float triIncrease = 0.3f;
 float trimaxoffset = 0.5f;
 bool direction = true;
-GLuint VAO, VBO, IBO, shader, uniformModel, uniformProjection;
+GLuint VAO, VBO, IBO, shader, uniformModel, uniformProjection, uniformColor;
 
 //vShader
 static const char* vShader =
@@ -25,14 +30,12 @@ static const char* vShader =
                                                                 \n\
 layout (location = 0) in vec3 pos;                              \n\
                                                                 \n\
-out vec4 vCol;                                                  \n\
                                                                 \n\
 uniform mat4 model;                                             \n\
 uniform mat4 projection;                                        \n\
                                                                 \n\
 void main() {                                                   \n\
     gl_Position = projection * model * vec4(pos, 1.0);          \n\
-    vCol = vec4(clamp(pos, 0.0f, 1.0f), 1.0f);                  \n\
 }                                                               \n\
 ";
 
@@ -41,7 +44,7 @@ static const char* fShader =
 "                                                               \n\
                                                                 \n\
 #version 330                                                    \n\
-in vec4 vCol;                                                   \n\
+uniform vec4 vCol;                                              \n\
 out vec4 colour;                                                \n\
                                                                 \n\
 void main()                                                     \n\
@@ -146,6 +149,21 @@ void CompileShaders() {
     uniformProjection = glGetUniformLocation(shader, "projection");
 }
 
+void update(long elapsedTime) {
+    if(direction) {
+        trioffset += triIncrease * (elapsedTime / 1000.0);
+    } else {
+        trioffset -= triIncrease * (elapsedTime / 1000.0);
+    }
+    
+    if(direction && trioffset >= trimaxoffset) {
+        direction = false;
+    }
+    if(!direction && trioffset <= -trimaxoffset) {
+        direction = true;
+    }
+}
+
 int main() {
     if(!glfwInit()) {
         printf("GLFW Installation Failed");
@@ -189,18 +207,23 @@ int main() {
     
     mat4 projection = perspective(45.0f, (GLfloat)bufferWidth / (GLfloat)bufferHeight, 0.1f, 100.0f);
     
+    auto currentTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    
+    long lastTime = currentTime;
+    long elaspTime;
+    
+    
+    
     while(!glfwWindowShouldClose(mainWindow)) {
+        currentTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        
+        elaspTime = currentTime - lastTime;
+        lastTime = currentTime;
+        
         //Get + Handle user input events
         glfwPollEvents();
-        if(direction) {
-            trioffset += triIncrease;
-        } else {
-            trioffset -= triIncrease;
-        }
         
-        if(abs(trioffset) >= trimaxoffset) {
-            direction = !direction;
-        }
+        update(elaspTime);
         
         //Clear Window
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

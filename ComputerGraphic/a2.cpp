@@ -10,10 +10,15 @@
 using namespace std;
 using namespace glm;
 
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
+using std::chrono::seconds;
+using std::chrono::system_clock;
+
 const GLint WIDTH = 800, HEIGHT = 600;
 const float toRadian = 3.14159265f / 180.0f;
 float trioffset = 0.0f;
-float triIncrease = 0.005f;
+float triIncrease = 0.3f;
 float trimaxoffset = 0.5f;
 bool direction = true;
 GLuint VAO, VBO, IBO, shader, uniformModel, uniformProjection;
@@ -32,7 +37,7 @@ uniform mat4 projection;                                        \n\
                                                                 \n\
 void main() {                                                   \n\
     gl_Position = projection * model * vec4(pos, 1.0);          \n\
-    vCol = vec4(clamp(pos, 0.0f, 1.0f), 1.0f);                  \n\
+    vCol = vec4(0.0f, 1.0f, 0.0f, 1.0f);                        \n\
 }                                                               \n\
 ";
 
@@ -53,18 +58,28 @@ void main()                                                     \n\
 void CreateTriangle() {
     GLfloat vertices[] =
     {
-        -1.0f, -1.0f, 0.0f,
-        0.0f, -1.0f, 1.0f,
-        1.0f, -1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f
+        -1.0f, 0.2f, 0.0f,
+        -0.8f, 0.2f, 0.0f,
+        -0.4f, 0.2f, 0.0f,
+        -0.2f, 0.2f, 0.0f,
+        -0.8f, -0.3f, 0.0f,
+        -0.4f, -0.3f, 0.0f,
+        -0.9f, -0.4f, 0.0f,
+        -0.8f, -0.4f, 0.0f,
+        -0.4f, -0.4f, 0.0f,
+        -0.3f, -0.4f, 0.0f,
     };
     
     unsigned int indices[] =
     {
-        0, 3, 1,
-        1, 3, 2,
-        2, 3, 0,
-        0, 1, 2
+        0, 4, 1,
+        1, 4, 5,
+        1, 5, 2,
+        2, 5, 3,
+        4, 6, 7,
+        4, 7, 8,
+        4, 8, 5,
+        5, 8, 9
     };
     
     glGenVertexArrays(1, &VAO);
@@ -118,12 +133,14 @@ void CompileShaders() {
         return;
     }
     
+    //Add Shader
     AddShader(shader, vShader, GL_VERTEX_SHADER);
     AddShader(shader, fShader, GL_FRAGMENT_SHADER);
     
     GLint result = 0;
     GLchar elog[1024] = { 0 };
     
+    //Link Shader
     glLinkProgram(shader);
     glGetProgramiv(shader, GL_LINK_STATUS, &result);
     
@@ -142,10 +159,29 @@ void CompileShaders() {
         return;
     }
     
+    
+    //Get Uniform
     uniformModel = glGetUniformLocation(shader, "model");
     uniformProjection = glGetUniformLocation(shader, "projection");
 }
 
+//Animation Update
+void update(long elapsedTime) {
+    if(direction) {
+        trioffset += triIncrease * (elapsedTime / 1000.0);
+    } else {
+        trioffset -= triIncrease * (elapsedTime / 1000.0);
+    }
+    
+    if(direction && trioffset >= trimaxoffset) {
+        direction = false;
+    }
+    if(!direction && trioffset <= -trimaxoffset) {
+        direction = true;
+    }
+}
+
+//Main Program
 int main() {
     if(!glfwInit()) {
         printf("GLFW Installation Failed");
@@ -189,18 +225,25 @@ int main() {
     
     mat4 projection = perspective(45.0f, (GLfloat)bufferWidth / (GLfloat)bufferHeight, 0.1f, 100.0f);
     
+    //Animation Init
+    auto currentTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    
+    long lastTime = currentTime;
+    long elaspTime;
+    
+    
+    
     while(!glfwWindowShouldClose(mainWindow)) {
+        //Animation Loop
+        currentTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        
+        elaspTime = currentTime - lastTime;
+        lastTime = currentTime;
+        
         //Get + Handle user input events
         glfwPollEvents();
-        if(direction) {
-            trioffset += triIncrease;
-        } else {
-            trioffset -= triIncrease;
-        }
         
-        if(abs(trioffset) >= trimaxoffset) {
-            direction = !direction;
-        }
+        update(elaspTime);
         
         //Clear Window
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -213,7 +256,7 @@ int main() {
         /* Transformation */
         model = translate(model, vec3(trioffset, 0.0f, -2.5f));
         //model = rotate(model, 90.0f * toRadian, vec3(0.0f, 0.0f, 1.0f));
-        model = scale(model, vec3(0.4f, 0.4f, 1.0f));
+        //model = scale(model, vec3(0.4f, 0.4f, 1.0f));
         
         glUniformMatrix4fv(uniformModel, 1, GL_FALSE, value_ptr(model));
         glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, value_ptr(projection));
@@ -221,7 +264,7 @@ int main() {
         glBindVertexArray(VAO);
         //glDrawArrays(GL_TRIANGLES, 0, 3);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-        glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 30, GL_UNSIGNED_INT, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
         glUseProgram(0);
